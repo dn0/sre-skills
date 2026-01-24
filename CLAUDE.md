@@ -23,6 +23,10 @@ Skills are in `skills/` (symlinked to `.claude/skills/`).
 - `gcp-traces`
 - `grafana-tempo`
 
+### Alerts
+- `gcp-alerts`
+- `grafana-alerts
+
 ## Skill Structure
 
 ```
