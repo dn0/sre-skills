@@ -1,6 +1,6 @@
 ---
 name: grafana-alerts
-description: Query firing alerts from Grafana Alertmanager. Use when checking alert status, investigating firing alerts, or reviewing silenced alerts. Supports both Grafana-managed and external (Prometheus) alerting rules.
+description: Query firing alerts from Grafana Alertmanager. Use when checking alert status, investigating firing alerts, reviewing silenced alerts, or verifying configured alert rules. Supports both Grafana-managed and external (Prometheus) alerting rules.
 ---
 
 # Grafana Alerts Skill
@@ -39,7 +39,9 @@ To see ALL firing alerts, query each Prometheus/Mimir datasource.
 ```
 
 - **DATASOURCE**: The datasource UID
-- **STATE** (alertmanager only): `all`, `active`, `silenced`
+- **STATE**:
+  - Alertmanager: `all` (default), `active`, `silenced`
+  - Prometheus: `alerts` (default), `rules` (all configured rules)
 - **TYPE**: `auto` (default), `alertmanager`, `prometheus`
 
 The script auto-detects the datasource type.
@@ -59,6 +61,26 @@ The script auto-detects the datasource type.
 ### Get active alerts from Alertmanager (not silenced)
 ```bash
 ./scripts/query.sh alertmanager-prod active
+```
+
+### Get all configured rules (alerting and recording)
+```bash
+./scripts/query.sh prometheus-prod rules
+```
+
+### List all alerting rule names
+```bash
+./scripts/query.sh prometheus-prod rules | jq -r '.data.groups[].rules[] | select(.type == "alerting") | .name'
+```
+
+### Find rules with errors or no data
+```bash
+./scripts/query.sh prometheus-prod rules | jq '[.data.groups[].rules[] | select(.health == "error" or .health == "nodata")]'
+```
+
+### Check if a specific alert rule exists
+```bash
+./scripts/query.sh prometheus-prod rules | jq '.data.groups[].rules[] | select(.name == "MyAlertName")'
 ```
 
 ## Workflow
@@ -99,7 +121,7 @@ The script auto-detects the datasource type.
 
 ## Response Structure
 
-### Prometheus API Response
+### Prometheus Alerts Response
 ```json
 {
   "status": "success",
@@ -110,6 +132,31 @@ The script auto-detects the datasource type.
       "state": "firing|pending|inactive",
       "activeAt": "2024-01-24T12:00:00Z",
       "value": "1e+00"
+    }]
+  }
+}
+```
+
+### Prometheus Rules Response
+```json
+{
+  "status": "success",
+  "data": {
+    "groups": [{
+      "name": "GroupName",
+      "file": "/path/to/rules.yaml",
+      "rules": [{
+        "name": "AlertName",
+        "query": "promql_expression",
+        "duration": 60,
+        "labels": {"severity": "warning"},
+        "annotations": {"summary": "...", "description": "..."},
+        "state": "inactive|pending|firing",
+        "health": "ok|error|nodata",
+        "type": "alerting|recording",
+        "lastEvaluation": "2024-01-24T12:00:00Z",
+        "evaluationTime": 0.001
+      }]
     }]
   }
 }

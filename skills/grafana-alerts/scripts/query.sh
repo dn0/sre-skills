@@ -7,16 +7,21 @@
 #   alertmanager - Query Alertmanager API (alerts sent to alertmanager)
 #   prometheus   - Query Prometheus API (alerts from rules)
 #
-# STATE options (alertmanager only):
-#   all      - All alerts (default)
-#   active   - Only firing alerts (not silenced/inhibited)
-#   silenced - Only silenced alerts
+# STATE options:
+#   Alertmanager:
+#     all      - All alerts (default)
+#     active   - Only firing alerts (not silenced/inhibited)
+#     silenced - Only silenced alerts
+#   Prometheus:
+#     alerts   - Only firing/pending alerts (default)
+#     rules    - All configured rules (alerting and recording)
 #
 # Requires: GRAFANA_URL, GRAFANA_API_KEY environment variables
 #
 # Examples:
 #   ./query.sh alertmanager-prod active
 #   ./query.sh prometheus-prod
+#   ./query.sh prometheus-prod rules
 #   ./query.sh mimir-prod "" prometheus
 
 set -euo pipefail
@@ -60,6 +65,13 @@ if [ "$TYPE" = "alertmanager" ]; then
     "${GRAFANA_URL}/api/alertmanager/${DATASOURCE}/api/v2/alerts${PARAMS}"
 else
   # Prometheus API
-  curl -sS -H "Authorization: Bearer $GRAFANA_API_KEY" \
-    "${GRAFANA_URL}/api/prometheus/${DATASOURCE}/api/v1/alerts"
+  if [ "$STATE" = "rules" ]; then
+    # All configured rules (alerting and recording)
+    curl -sS -H "Authorization: Bearer $GRAFANA_API_KEY" \
+      "${GRAFANA_URL}/api/prometheus/${DATASOURCE}/api/v1/rules"
+  else
+    # Firing/pending alerts only
+    curl -sS -H "Authorization: Bearer $GRAFANA_API_KEY" \
+      "${GRAFANA_URL}/api/prometheus/${DATASOURCE}/api/v1/alerts"
+  fi
 fi
