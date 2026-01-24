@@ -7,6 +7,10 @@ description: Query and analyze Google Cloud Logging logs. Use when investigating
 
 Fetch and analyze logs from Google Cloud Logging.
 
+## Prerequisites
+
+**GCP Project ID is required.** If the user has not provided a GCP project ID, ask them for it before proceeding. All scripts require the project ID as the first argument.
+
 ## Scripts
 
 ### Query logs (CSV output)

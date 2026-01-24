@@ -7,6 +7,10 @@ description: Query Google Cloud Monitoring metrics using PromQL. Use when analyz
 
 Query Google Cloud Monitoring metrics using PromQL via the Prometheus-compatible API.
 
+## Prerequisites
+
+**GCP Project ID is required.** If the user has not provided a GCP project ID, ask them for it before proceeding. All scripts require the project ID as the first argument.
+
 ## Scripts
 
 ### Range query (time series)
