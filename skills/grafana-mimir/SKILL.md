@@ -13,7 +13,21 @@ Environment variables:
 - `GRAFANA_URL` - Grafana instance URL
 - `GRAFANA_API_KEY` - Service account token
 
+## First Step: Find the Data Source
+
+All queries require a Prometheus/Mimir data source name/UID. List available data sources:
+```bash
+./scripts/list-datasources.sh
+```
+
+If the user hasn't provided a data source name, run this script first and ask them to specify which one to use.
+
 ## Scripts
+
+### List Prometheus/Mimir data sources
+```bash
+./scripts/list-datasources.sh
+```
 
 ### Query metrics (range query)
 ```bash
