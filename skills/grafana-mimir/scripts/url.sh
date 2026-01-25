@@ -17,14 +17,16 @@ RANGE="${3:-now-30m}"
 : "${GRAFANA_URL:?GRAFANA_URL environment variable is required}"
 
 # Use Python for proper JSON escaping and URL encoding
-python3 << EOF
+# Pass variables as arguments to avoid shell escaping issues in heredoc
+python3 - "$DATASOURCE" "$QUERY" "$RANGE" "$GRAFANA_URL" << 'EOF'
 import urllib.parse
 import json
+import sys
 
-datasource = """$DATASOURCE"""
-query = """$QUERY"""
-range_from = """$RANGE"""
-grafana_url = """$GRAFANA_URL"""
+datasource = sys.argv[1]
+query = sys.argv[2]
+range_from = sys.argv[3]
+grafana_url = sys.argv[4]
 
 panes = {
     "ahf": {

@@ -12,6 +12,7 @@ PROJECT="${1:?Usage: $0 PROJECT QUERY [DURATION]}"
 QUERY="${2:?Usage: $0 PROJECT QUERY [DURATION]}"
 DURATION="${3:-PT1H}"
 
-ENCODED_QUERY=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$QUERY''', safe=''))")
+# URL encode via stdin to avoid shell escaping issues
+ENCODED_QUERY=$(printf '%s' "$QUERY" | python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.stdin.read(), safe=''))")
 
 echo "https://console.cloud.google.com/logs/query;query=${ENCODED_QUERY};duration=${DURATION}?project=${PROJECT}"
