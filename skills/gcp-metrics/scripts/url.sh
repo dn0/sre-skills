@@ -12,13 +12,10 @@ PROJECT="${1:?Usage: $0 PROJECT QUERY [DURATION]}"
 QUERY="${2:?Usage: $0 PROJECT QUERY [DURATION]}"
 DURATION="${3:-PT1H}"
 
-# Escape quotes for JSON
-JSON_QUERY=$(echo "$QUERY" | sed 's/"/\\"/g')
+# Build pageState JSON with proper escaping using jq (-c for compact output)
+PAGE_STATE=$(jq -cn --arg query "$QUERY" '{"xyChart":{"dataSets":[{"plotType":"LINE","prometheusQuery":$query}]}}')
 
-# Build pageState JSON
-PAGE_STATE='{"xyChart":{"dataSets":[{"plotType":"LINE","prometheusQuery":"'"${JSON_QUERY}"'"}]}}'
-
-# URL encode
-ENCODED_STATE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$PAGE_STATE'''))")
+# URL encode via stdin to avoid shell escaping issues
+ENCODED_STATE=$(printf '%s' "$PAGE_STATE" | python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.stdin.read()))")
 
 echo "https://console.cloud.google.com/monitoring/metrics-explorer;duration=${DURATION}?project=${PROJECT}&pageState=${ENCODED_STATE}"
