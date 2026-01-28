@@ -23,22 +23,29 @@ START=$(( $(date +%s) - RANGE_MINUTES * 60 ))000
 INTERVAL_MS=$((STEP_SECONDS * 1000))
 MAX_POINTS=$((RANGE_MINUTES * 60 / STEP_SECONDS))
 
-# Escape query for JSON
-ESCAPED_QUERY=$(echo "$QUERY" | sed 's/\\/\\\\/g; s/"/\\"/g')
+# Build JSON payload using jq to avoid shell escaping issues
+PAYLOAD=$(jq -n \
+  --arg datasource "$DATASOURCE" \
+  --arg query "$QUERY" \
+  --argjson intervalMs "$INTERVAL_MS" \
+  --argjson maxPoints "$MAX_POINTS" \
+  --arg start "$START" \
+  --arg end "$END" \
+  '{
+    queries: [{
+      refId: "A",
+      datasource: {type: "prometheus", uid: $datasource},
+      expr: $query,
+      range: true,
+      instant: false,
+      intervalMs: $intervalMs,
+      maxDataPoints: $maxPoints
+    }],
+    from: $start,
+    to: $end
+  }')
 
 curl -sS -X POST -H "Authorization: Bearer $GRAFANA_API_KEY" \
   -H "Content-Type: application/json" \
   "${GRAFANA_URL}/api/ds/query" \
-  -d '{
-    "queries": [{
-      "refId": "A",
-      "datasource": {"type": "prometheus", "uid": "'"$DATASOURCE"'"},
-      "expr": "'"$ESCAPED_QUERY"'",
-      "range": true,
-      "instant": false,
-      "intervalMs": '"$INTERVAL_MS"',
-      "maxDataPoints": '"$MAX_POINTS"'
-    }],
-    "from": "'"$START"'",
-    "to": "'"$END"'"
-  }'
+  -d "$PAYLOAD"

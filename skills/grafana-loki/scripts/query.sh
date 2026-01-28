@@ -21,20 +21,26 @@ LIMIT="${4:-100}"
 END=$(date +%s)000
 START=$(( $(date +%s) - RANGE_MINUTES * 60 ))000
 
-# Escape query for JSON
-ESCAPED_QUERY=$(echo "$QUERY" | sed 's/\\/\\\\/g; s/"/\\"/g')
+# Build JSON payload using jq to avoid shell escaping issues (e.g. backticks in LogQL)
+PAYLOAD=$(jq -n \
+  --arg datasource "$DATASOURCE" \
+  --arg query "$QUERY" \
+  --argjson limit "$LIMIT" \
+  --arg start "$START" \
+  --arg end "$END" \
+  '{
+    queries: [{
+      refId: "A",
+      datasource: {type: "loki", uid: $datasource},
+      expr: $query,
+      queryType: "range",
+      maxLines: $limit
+    }],
+    from: $start,
+    to: $end
+  }')
 
 curl -sS -X POST -H "Authorization: Bearer $GRAFANA_API_KEY" \
   -H "Content-Type: application/json" \
   "${GRAFANA_URL}/api/ds/query" \
-  -d '{
-    "queries": [{
-      "refId": "A",
-      "datasource": {"type": "loki", "uid": "'"$DATASOURCE"'"},
-      "expr": "'"$ESCAPED_QUERY"'",
-      "queryType": "range",
-      "maxLines": '"$LIMIT"'
-    }],
-    "from": "'"$START"'",
-    "to": "'"$END"'"
-  }'
+  -d "$PAYLOAD"
