@@ -1,4 +1,4 @@
-# SRE Skills for Claude
+# SRE Skills for Claude and other LLM Agents
 
 Claude Skills for Site Reliability Engineers, DevOps, and Cloud engineers focused on monitoring and observability.
 
@@ -25,7 +25,7 @@ Skills are in `skills/` (symlinked to `.claude/skills/`).
 
 ### Alerts
 - `gcp-alerts`
-- `grafana-alerts
+- `grafana-alerts`
 
 ## Skill Structure
 
@@ -52,8 +52,8 @@ description: What it does. When to use it.
 
 ## Design Principles
 
-1. **Scripts for reliability** - Put API calls, auth, URL encoding in executable scripts
-2. **Save before analyze** - Fetch data to temp files, then analyze (avoids re-fetching)
-3. **Compact output** - Prefer CSV over JSON when schema is known (~14x smaller)
-4. **Generate UI URLs** - Always provide URLs for humans to view in native UIs
-5. **Use standard tools** - `awk`, `jq`, `gcloud` for analysis
+1. **Scripts for reliability** – Put API calls, auth, URL encoding in executable scripts
+2. **Save before analyze** – Fetch data to temp files, then analyze (avoids re-fetching)
+3. **Compact output** – Prefer CSV over JSON when schema is known or when working with many logs (~15x smaller)
+4. **Generate UI URLs** – Always provide URLs for humans to view in native UIs
+5. **Use standard tools** – `grep`, `awk`, `jq`, `sed`, `python` for analysis
