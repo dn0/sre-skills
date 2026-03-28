@@ -1,0 +1,49 @@
+tools:
+  - name: gcp_alerts_list_policies
+    description: "List GCP Cloud Monitoring alert policies for a project. Use to understand what alert conditions are configured."
+    script: scripts/list-policies.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: filter
+        type: string
+        default: "enabled"
+        description: "Filter: 'enabled' for active policies only, 'all' for all policies"
+        enum: ["enabled", "all"]
+
+  - name: gcp_alerts_query
+    description: "Query GCP Cloud Monitoring alert incidents. Use to check current and recent alert firings."
+    script: scripts/query.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: state
+        type: string
+        default: "open"
+        description: "Incident state filter"
+        enum: ["open", "closed", "all"]
+      - name: limit
+        type: integer
+        default: 20
+        description: "Maximum number of incidents to return"
+
+  - name: gcp_alerts_url
+    description: "Generate a GCP Cloud Monitoring Alerting console URL for humans to view alerts in the browser."
+    script: scripts/url.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: type
+        type: string
+        default: "incidents"
+        description: "Page type to link to"
+        enum: ["incidents", "policies"]
+      - name: id
+        type: string
+        description: "Optional specific policy or incident ID"

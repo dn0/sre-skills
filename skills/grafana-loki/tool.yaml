@@ -1,0 +1,43 @@
+tools:
+  - name: grafana_loki_list_datasources
+    description: "List available Loki datasources in Grafana. Use to discover datasource UIDs before querying."
+    script: scripts/list-datasources.sh
+    parameters: []
+
+  - name: grafana_loki_query
+    description: "Query logs from Grafana Loki using LogQL. Use for investigating application logs, Kubernetes events, and other log sources ingested into Loki."
+    script: scripts/query.sh
+    parameters:
+      - name: datasource
+        type: string
+        required: true
+        description: "Loki datasource UID in Grafana"
+      - name: query
+        type: string
+        required: true
+        description: "LogQL query expression (e.g., {namespace=\"my-app\"} |= \"error\")"
+      - name: range_minutes
+        type: integer
+        default: 30
+        description: "How many minutes back to search"
+      - name: limit
+        type: integer
+        default: 100
+        description: "Maximum number of log lines to return"
+
+  - name: grafana_loki_url
+    description: "Generate a Grafana Explore URL for humans to view the Loki query in the browser."
+    script: scripts/url.sh
+    parameters:
+      - name: datasource
+        type: string
+        required: true
+        description: "Loki datasource UID in Grafana"
+      - name: query
+        type: string
+        required: true
+        description: "LogQL query expression"
+      - name: range
+        type: string
+        default: "30m"
+        description: "Time range (e.g., 15m, 1h, 6h)"

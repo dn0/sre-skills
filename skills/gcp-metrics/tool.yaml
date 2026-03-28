@@ -1,0 +1,55 @@
+tools:
+  - name: gcp_metrics_query
+    description: "Query GCP Cloud Monitoring metrics using PromQL and return time series data as CSV. Use for analyzing resource utilization, error rates, latency, and other metrics."
+    script: scripts/query.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: query
+        type: string
+        required: true
+        description: "PromQL query expression (e.g., rate(requests_total[5m]))"
+      - name: start_offset_seconds
+        type: integer
+        default: 3600
+        description: "How many seconds ago the query range starts (default: 3600 = 1 hour ago)"
+      - name: end_offset_seconds
+        type: integer
+        default: 0
+        description: "How many seconds ago the query range ends (default: 0 = now)"
+      - name: step_seconds
+        type: integer
+        default: 60
+        description: "Step interval between data points in seconds"
+
+  - name: gcp_metrics_query_instant
+    description: "Execute an instant PromQL query against GCP Cloud Monitoring, returning the current value. Use for checking current state of a metric."
+    script: scripts/query-instant.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: query
+        type: string
+        required: true
+        description: "PromQL query expression"
+
+  - name: gcp_metrics_url
+    description: "Generate a GCP Metrics Explorer console URL for humans to view the query in the browser."
+    script: scripts/url.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: query
+        type: string
+        required: true
+        description: "PromQL query expression"
+      - name: duration
+        type: string
+        default: "PT1H"
+        description: "Time range in ISO 8601 duration (e.g., PT30M, PT1H, PT6H)"

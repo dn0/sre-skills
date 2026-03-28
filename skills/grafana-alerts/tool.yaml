@@ -1,0 +1,23 @@
+tools:
+  - name: grafana_alerts_list_datasources
+    description: "List available Alertmanager and Prometheus datasources in Grafana. Use to discover datasource UIDs before querying alerts."
+    script: scripts/list-datasources.sh
+    parameters: []
+
+  - name: grafana_alerts_query
+    description: "Query firing alerts from Grafana Alertmanager or Prometheus alert rules. Use to check current alert state and active incidents."
+    script: scripts/query.sh
+    parameters:
+      - name: datasource
+        type: string
+        required: true
+        description: "Alertmanager or Prometheus datasource UID in Grafana"
+      - name: state
+        type: string
+        default: "active"
+        description: "Alert state filter"
+        enum: ["active", "suppressed", "unprocessed"]
+      - name: type
+        type: string
+        description: "Datasource type override. Auto-detected if not set."
+        enum: ["alertmanager", "prometheus"]

@@ -1,0 +1,63 @@
+tools:
+  - name: gcp_logs_query
+    description: "Query GCP Cloud Logging and return matching log entries as CSV. Use for investigating application errors, HTTP request logs, GKE container logs, and other GCP log sources."
+    script: scripts/query.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: filter
+        type: string
+        required: true
+        description: "Cloud Logging filter expression (e.g., resource.type=\"k8s_container\" AND severity>=\"ERROR\")"
+      - name: format_fields
+        type: string
+        required: true
+        description: "Comma-separated fields for CSV output (e.g., timestamp,severity,textPayload)"
+      - name: limit
+        type: integer
+        default: 1000
+        description: "Maximum number of log entries to return"
+      - name: freshness
+        type: string
+        default: "1d"
+        description: "How far back to search (e.g., 1h, 6h, 1d)"
+
+  - name: gcp_logs_query_json
+    description: "Query GCP Cloud Logging with full JSON output. Use when exploring unknown log structures to see all available fields."
+    script: scripts/query-json.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: filter
+        type: string
+        required: true
+        description: "Cloud Logging filter expression"
+      - name: limit
+        type: integer
+        default: 10
+        description: "Maximum number of log entries to return"
+      - name: freshness
+        type: string
+        default: "1d"
+        description: "How far back to search (e.g., 1h, 6h, 1d)"
+
+  - name: gcp_logs_url
+    description: "Generate a GCP Logs Explorer console URL for humans to view matching logs in the browser."
+    script: scripts/url.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: query
+        type: string
+        required: true
+        description: "Cloud Logging filter expression"
+      - name: duration
+        type: string
+        default: "PT1H"
+        description: "Time range in ISO 8601 duration (e.g., PT30M, PT1H, PT6H)"

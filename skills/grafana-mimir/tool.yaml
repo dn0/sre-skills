@@ -1,0 +1,43 @@
+tools:
+  - name: grafana_mimir_list_datasources
+    description: "List available Mimir/Prometheus datasources in Grafana. Use to discover datasource UIDs before querying."
+    script: scripts/list-datasources.sh
+    parameters: []
+
+  - name: grafana_mimir_query
+    description: "Query metrics from Grafana Mimir using PromQL. Use for analyzing time series metrics like error rates, latency percentiles, resource utilization."
+    script: scripts/query.sh
+    parameters:
+      - name: datasource
+        type: string
+        required: true
+        description: "Mimir datasource UID in Grafana"
+      - name: query
+        type: string
+        required: true
+        description: "PromQL query expression (e.g., rate(http_requests_total[5m]))"
+      - name: range_minutes
+        type: integer
+        default: 30
+        description: "How many minutes back to query"
+      - name: step_seconds
+        type: integer
+        default: 60
+        description: "Step interval between data points in seconds"
+
+  - name: grafana_mimir_url
+    description: "Generate a Grafana Explore URL for humans to view the Mimir/PromQL query in the browser."
+    script: scripts/url.sh
+    parameters:
+      - name: datasource
+        type: string
+        required: true
+        description: "Mimir datasource UID in Grafana"
+      - name: query
+        type: string
+        required: true
+        description: "PromQL query expression"
+      - name: range
+        type: string
+        default: "30m"
+        description: "Time range (e.g., 15m, 1h, 6h)"
