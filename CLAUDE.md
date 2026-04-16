@@ -14,10 +14,12 @@ Skills are in `skills/` (symlinked to `.claude/skills/`).
 ### Logs
 - `gcp-logs`
 - `grafana-loki`
+- `nr-logs`
 
 ### Metrics
 - `gcp-metrics`
 - `grafana-mimir`
+- `nr-metrics`
 
 ### Traces
 - `gcp-traces`
@@ -26,16 +28,17 @@ Skills are in `skills/` (symlinked to `.claude/skills/`).
 ### Alerts
 - `gcp-alerts`
 - `grafana-alerts`
+- `nr-alerts`
 
 ## Skill Structure
 
 ```
 skills/<skill-name>/
-├── SKILL.md              # Instructions with YAML frontmatter (for Claude Code / human use)
-├── tool.yaml             # Machine-readable tool definitions (for sre-bot / programmatic use)
+├── SKILL.md     # Instructions with YAML frontmatter (for Claude Code / human use)
+├── tool.yaml    # Machine-readable tool definitions (for sre-bot / programmatic use)
 └── scripts/
-    ├── query.sh          # Data fetching
-    └── url.sh            # UI URL generation
+    ├── query.sh # Data fetching (NR skills: + URL + clipboard + FACET tables; --raw for JSON)
+    └── url.sh   # UI URL generation
 ```
 
 ### SKILL.md Format
