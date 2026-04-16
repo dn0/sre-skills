@@ -12,7 +12,7 @@ PROJECT="${1:?Usage: $0 PROJECT QUERY}"
 QUERY="${2:?Usage: $0 PROJECT QUERY}"
 
 TOKEN=$(gcloud auth print-access-token)
-ENCODED_QUERY=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$QUERY'''))")
+ENCODED_QUERY=$(printf '%s' "$QUERY" | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=""))')
 
-curl -s -H "Authorization: Bearer $TOKEN" \
+curl -fsS -H "Authorization: Bearer $TOKEN" \
   "https://monitoring.googleapis.com/v1/projects/${PROJECT}/location/global/prometheus/api/v1/query?query=${ENCODED_QUERY}"

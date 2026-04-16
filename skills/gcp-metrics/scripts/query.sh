@@ -19,7 +19,7 @@ END=$(date +%s)
 END=$((END - END_OFFSET))
 START=$((END - START_OFFSET))
 
-ENCODED_QUERY=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$QUERY'''))")
+ENCODED_QUERY=$(printf '%s' "$QUERY" | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=""))')
 
-curl -s -H "Authorization: Bearer $TOKEN" \
+curl -fsS -H "Authorization: Bearer $TOKEN" \
   "https://monitoring.googleapis.com/v1/projects/${PROJECT}/location/global/prometheus/api/v1/query_range?query=${ENCODED_QUERY}&start=${START}&end=${END}&step=${STEP}"
