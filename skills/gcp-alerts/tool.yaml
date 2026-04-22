@@ -41,9 +41,9 @@ tools:
         description: "GCP project ID"
       - name: type
         type: string
-        default: "incidents"
+        default: "overview"
         description: "Page type to link to"
-        enum: ["incidents", "policies"]
+        enum: ["overview", "alert", "policy"]
       - name: id
         type: string
         description: "Optional specific policy or incident ID"
