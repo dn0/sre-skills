@@ -30,6 +30,9 @@ Skills are in `skills/` (symlinked to `.claude/skills/`).
 - `grafana-alerts`
 - `nr-alerts`
 
+### Errors
+- `gcp-errors`
+
 ## Skill Structure
 
 ```

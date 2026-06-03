@@ -1,0 +1,120 @@
+tools:
+  - name: gcp_errors_list_groups
+    description: "List error groups (with stats) from GCP Error Reporting. Use to find the top recurring errors for a service, get occurrence counts, first/last seen times, affected services/versions, resolution status, tracking issues, and a representative stack trace. FORMAT=summary prints a compact human-readable view."
+    script: scripts/list-groups.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: service
+        type: string
+        default: ""
+        description: "Optional service name to filter on (e.g. 'web'). Empty = all services."
+      - name: period
+        type: string
+        default: "1d"
+        description: "Lookback time range"
+        enum: ["1h", "6h", "1d", "1w", "30d"]
+      - name: status
+        type: string
+        default: "all"
+        description: "Filter by resolution status (client-side; the groupStats API does not expose it as a query param)"
+        enum: ["open", "acknowledged", "resolved", "muted", "all"]
+      - name: limit
+        type: integer
+        default: 20
+        description: "Maximum number of error groups to return"
+      - name: format
+        type: string
+        default: "json"
+        description: "Output format. 'summary' prints a compact human-readable list."
+        enum: ["json", "summary"]
+
+  - name: gcp_errors_query
+    description: "Fetch error events (with full stack traces, timestamps, and HTTP context) for a specific error group. Use after list_groups to drill into a particular group. FORMAT=summary dedups events by the first line of the message and prints distinct patterns by frequency — useful for spotting subtypes inside one group."
+    script: scripts/query.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: group_id
+        type: string
+        required: true
+        description: "Error group ID (e.g. 'CMy_2efZpKz-VA') from list_groups output"
+      - name: period
+        type: string
+        default: "1d"
+        description: "Lookback time range"
+        enum: ["1h", "6h", "1d", "1w", "30d"]
+      - name: limit
+        type: integer
+        default: 20
+        description: "Maximum number of events to return"
+      - name: service
+        type: string
+        default: ""
+        description: "Optional service name filter"
+      - name: format
+        type: string
+        default: "json"
+        description: "Output format. 'summary' dedups events by first message line."
+        enum: ["json", "summary"]
+
+  - name: gcp_errors_get_group
+    description: "Fetch full metadata for a single error group, including resolutionStatus and trackingIssues. Useful before and after gcp_errors_update_group to check or confirm state."
+    script: scripts/get-group.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: group_id
+        type: string
+        required: true
+        description: "Error group ID"
+
+  - name: gcp_errors_update_group
+    description: "Update an error group's resolution status and optionally attach a tracking issue URL. Use to acknowledge, resolve, or mute groups, and to link them to GitHub issues during triage. Replaces existing trackingIssues when ISSUE_URL is given; preserves them when omitted. Requires errorreporting.groups.update permission."
+    script: scripts/update-group.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: group_id
+        type: string
+        required: true
+        description: "Error group ID"
+      - name: status
+        type: string
+        required: true
+        description: "New resolution status (case-insensitive)"
+        enum: ["open", "acknowledged", "resolved", "muted"]
+      - name: issue_url
+        type: string
+        default: ""
+        description: "Optional tracking issue URL. When set, REPLACES existing trackingIssues. Omit to preserve them."
+
+  - name: gcp_errors_url
+    description: "Generate a GCP Error Reporting console URL for humans to view errors in the browser."
+    script: scripts/url.sh
+    parameters:
+      - name: project
+        type: string
+        required: true
+        description: "GCP project ID"
+      - name: type
+        type: string
+        default: "overview"
+        description: "Page type to link to"
+        enum: ["overview", "group"]
+      - name: group_id
+        type: string
+        default: ""
+        description: "Error group ID (required when type=group)"
+      - name: duration
+        type: string
+        default: "PT1H"
+        description: "Time range in ISO 8601 duration (e.g. PT1H, PT6H, P1D, P7D, P30D)"
