@@ -13,6 +13,12 @@ Environment variables:
 - `NEW_RELIC_API_KEY` - User API key (NRAK prefix)
 - `NEW_RELIC_ACCOUNT_ID` - Numeric account ID
 
+Tooling (either works; the CLI is preferred when present):
+- [`newrelic` CLI](https://github.com/newrelic/newrelic-cli) - reads the two env vars above automatically
+- or `curl` + `jq` - used as the fallback transport
+
+Both paths also need `python3` for result formatting.
+
 ## Scripts
 
 ### Query metrics (NRQL)
@@ -20,12 +26,12 @@ Environment variables:
 ./scripts/query.sh NRQL [TIMEOUT_SECONDS]
 ```
 
-Runs the NRQL via NerdGraph, **copies the NRQL to the system clipboard** (macOS `pbcopy`, or `wl-copy` / `xclip` on Linux), prints **`Data exploration URL: https://one.newrelic.com/data-exploration?account=<numeric_account_id>`**, then prints **results**:
+Runs the NRQL (via the `newrelic` CLI when installed, otherwise the NerdGraph API over curl+jq — same results either way), **copies the NRQL to the system clipboard** (macOS `pbcopy`, or `wl-copy` / `xclip` on Linux), prints **`Data exploration URL: https://one.newrelic.com/data-exploration?account=<numeric_account_id>`**, then prints **results**:
 
 - **FACET aggregates** → **markdown table** (one column per facet dimension plus metric columns).
 - **Other shapes** (timeseries, raw rows) → **indented JSON**.
 
-Pass `--raw` as the first argument to get the full NerdGraph JSON (for `jq` pipelines or saving to a file).
+Pass `--raw` as the first argument to get the **NRQL results array** as JSON (for `jq` pipelines or saving to a file). The array is the same list you would find under `data.actor.account.nrql.results` in a raw NerdGraph response — the script has already unwrapped it.
 
 **Agents:** Copy the **Data exploration URL** line from script output verbatim—never replace the account id with placeholders like `${NEW_RELIC_ACCOUNT_ID}`.
 
@@ -34,7 +40,9 @@ Pass `--raw` as the first argument to get the full NerdGraph JSON (for `jq` pipe
 ./scripts/url.sh NRQL
 ```
 
-Prints the Data exploration URL and NRQL text. Open that page, expand the bottom **Query your data** drawer, switch to NRQL, paste, and Run. After running once, use **Copy query link** in the console for a shareable URL.
+Prints the Data exploration URL and the NRQL text (and copies the NRQL to the clipboard). Open that page, expand the bottom **Query your data** drawer, switch to NRQL, paste, and Run.
+
+There is deliberately **no one-click deep link with the query embedded**. New Relic's "Copy query link" produces a shortened `onenr.io` URL that redirects to `.../unified-data-exploration/share?...&state=<UUID>`, where the query is stored server-side and referenced by an opaque UUID created by the UI — it cannot be constructed offline. For a shareable link, run the query once in the UI and click **Copy query link**. For a durable, greppable link you *can* generate programmatically, put the query on a **dashboard** (dashboards expose a stable `permalinkUrl` via NerdGraph).
 
 ## NRQL for Metrics
 
@@ -66,6 +74,42 @@ WHERE <conditions>
 | `derivative(field)` | Rate of change |
 | `filter(count(*), WHERE cond)` | Filtered aggregate (use in complex ratios) |
 | `capture(field, r'regex')` | Extract named groups from strings (FACET) |
+
+## Discovering Metrics & Dimensions
+
+The catalog below covers common event types, but **do not assume it is complete** — each account sends different data depending on which integrations are installed. When you don't know the exact event type, metric name, or attribute, discover it instead of guessing.
+
+### Two data shapes
+
+- **Event samples** — one event type per source (`Transaction`, `K8sContainerSample`, `SyntheticCheck`, …), where each attribute is a column. Query with `FROM <EventType> SELECT <attr>`.
+- **Dimensional metrics** — everything in the single `Metric` event type, one row per `metricName` per reporting interval, with **dimensions** (labels) attached. Modern sources land here: **OpenTelemetry** (`k8s.*`, `otel.*`), **Prometheus** scrapes (`kube_*`, `node_*`, `container_*`), and **AWS Cloud integrations** (`aws.*`). Query with `FROM Metric WHERE metricName = '<name>'`.
+
+Newer Kubernetes/EKS clusters typically report as **dimensional OTel metrics**, not `K8sXxxSample`. If a `*Sample` query returns nothing, look in `Metric`.
+
+### Discovery queries
+
+```bash
+# What event types exist?
+./scripts/query.sh "SHOW EVENT TYPES SINCE 1 day ago"
+
+# What metric names match a keyword? (e.g. volume, cpu, disk, latency)
+./scripts/query.sh "SELECT count(*) FROM Metric WHERE metricName LIKE '%volume%' FACET metricName SINCE 1 day ago LIMIT 200"
+
+# What attributes/dimensions does an event type or metric carry?
+./scripts/query.sh "SELECT keyset() FROM K8sContainerSample SINCE 1 day ago"
+# keyset() can be unreliable when filtered; for a specific metric, read a sample row instead:
+./scripts/query.sh --raw "SELECT * FROM Metric WHERE metricName = '<name>' SINCE 30 minutes ago LIMIT 1" | jq 'add | keys'
+
+# What values does a dimension take? (find the right cluster/namespace label + value)
+./scripts/query.sh "SELECT count(*) FROM Metric WHERE metricName = '<name>' FACET <dimension> SINCE 1 hour ago LIMIT 100"
+```
+
+### Dimensional-metric gotchas
+
+- **Combine metrics with separate aggregators, not arithmetic inside one.** Each data point holds only one metric's value, so `latest(a - b)` is always null (no point has both `a` and `b`). Write `latest(a) - latest(b)` instead. Example — volume used %: `(latest(k8s.volume.capacity) - latest(k8s.volume.available)) / latest(k8s.volume.capacity) * 100`.
+- **Don't filter on the "other" metric.** Adding `WHERE b IS NOT NULL` drops every data point that carries `a`, breaking `latest(a)`. Filter/aggregate each series independently and combine the aggregates.
+- **Label names vary by integration.** OTel uses dotted names (`k8s.cluster.name`, `k8s.namespace.name`); `*Sample` events use camelCase (`clusterName`, `namespace`); Prometheus scrapes may use `cluster_name`. Discover the actual name (above) rather than assuming. Backtick dotted names that collide with NRQL syntax.
+- **A metric may lack the label you want.** When it does, enumerate/scope with a companion metric that has it. For example, kubelet volume stats (`k8s.volume.*`) carry no PVC label and mix in `emptyDir`/`hostPath` volumes that mirror the node's root disk; the kube-state metrics `kube_persistentvolumeclaim_*` (labels `k8s.pvc.name`, `k8s.namespace.name`, `k8s.cluster.name`) give the real PVC inventory to scope against.
 
 ## Event Types
 
@@ -315,42 +359,32 @@ Results from synthetic monitors.
 
 ## Workflow
 
-1. **Fetch to temp file** (use `--raw` for full JSON):
+1. **Fetch to temp file** (`--raw` emits the results array):
    ```bash
    ./scripts/query.sh --raw "SELECT average(duration), percentile(duration, 95) FROM Transaction WHERE appName = '<app-name>' SINCE 1 HOUR AGO TIMESERIES" > /tmp/nr-metrics.json
    ```
 
-2. **Analyze with jq**:
+2. **Analyze with jq** (the file is already the results array):
    ```bash
-   # Extract results
-   jq '.data.actor.account.nrql.results' /tmp/nr-metrics.json
+   # View results
+   jq '.' /tmp/nr-metrics.json
 
    # Get timeseries values
-   jq '[.data.actor.account.nrql.results[] | {time: .beginTimeSeconds, avg: .average, p95: .percentile}]' /tmp/nr-metrics.json
+   jq '[.[] | {time: .beginTimeSeconds, avg: .average, p95: .percentile}]' /tmp/nr-metrics.json
 
    # Find max value
-   jq '[.data.actor.account.nrql.results[].average] | max' /tmp/nr-metrics.json
+   jq '[.[].average] | max' /tmp/nr-metrics.json
    ```
 
-3. **Generate URL**: run `./scripts/url.sh` with the same NRQL. After running once in the UI, **Copy query link** shares a URL that embeds the query.
+3. **Share with a human**: run `./scripts/url.sh` with the same NRQL — it prints the console URL and the NRQL to paste. For a shareable link, the human runs it once in the UI and clicks **Copy query link** (server-backed; not constructable offline).
 
 ## Response Structure
 
-NerdGraph returns NRQL results in this structure:
+`--raw` returns the **results array** directly (the script unwraps NerdGraph's `data.actor.account.nrql.results` for you, and the `newrelic` CLI returns the same array natively):
 ```json
-{
-  "data": {
-    "actor": {
-      "account": {
-        "nrql": {
-          "results": [
-            { "average": 0.123, "facet": "my-app" }
-          ]
-        }
-      }
-    }
-  }
-}
+[
+  { "average": 0.123, "facet": "my-app" }
+]
 ```
 
 For TIMESERIES queries, each bucket includes:

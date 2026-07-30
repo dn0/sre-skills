@@ -1,14 +1,17 @@
 #!/bin/bash
-# Print New Relic Data exploration URL + NRQL to paste in the query console.
+# Print the New Relic Data exploration URL + the NRQL to paste in the query console.
 # Usage: ./url.sh NRQL
 #
 # Requires: NEW_RELIC_ACCOUNT_ID environment variable
 #
-# The unified query UI (2024+) usually ignores legacy ?state= deep links on
-# /data-exploration/query-builder. Open the data-exploration URL, expand the
-# bottom "Query your data" drawer, NRQL mode, paste the printed query, Run.
-# For a shareable link that embeds the query, use "Copy query link" in the UI
-# after running once.
+# Why there is no ready-made deep link:
+# New Relic's modern "Copy query link" produces a shortened onenr.io URL that
+# redirects to .../unified-data-exploration/share?...&state=<UUID>, where the
+# query text is stored server-side and referenced by an opaque UUID. That state
+# is created by the UI and cannot be constructed offline, so this script cannot
+# emit a one-click link with the query embedded. Instead it prints the console
+# URL plus the NRQL to paste. (For a shareable link, run once in the UI and use
+# "Copy query link".)
 #
 # Examples:
 #   ./url.sh "FROM Log SELECT * WHERE level = 'ERROR' SINCE 30 MINUTES AGO LIMIT 100"
@@ -20,31 +23,29 @@ NRQL="${1:?Usage: $0 NRQL}"
 
 : "${NEW_RELIC_ACCOUNT_ID:?NEW_RELIC_ACCOUNT_ID environment variable is required}"
 
-# Pass variables as arguments to avoid shell escaping issues
-python3 - "$NRQL" "$NEW_RELIC_ACCOUNT_ID" << 'EOF'
-import json
-import sys
-import urllib.parse
+echo "Data exploration URL: https://one.newrelic.com/data-exploration?account=${NEW_RELIC_ACCOUNT_ID}"
+echo
+echo "$NRQL"
 
-nrql = sys.argv[1]
-account_id = sys.argv[2]
+# Best-effort: also copy the NRQL to the clipboard so it is ready to paste.
+if command -v pbcopy >/dev/null 2>&1; then
+  printf '%s' "$NRQL" | pbcopy
+  echo >&2
+  echo "NRQL copied to clipboard (pbcopy)." >&2
+elif command -v wl-copy >/dev/null 2>&1; then
+  printf '%s' "$NRQL" | wl-copy
+  echo >&2
+  echo "NRQL copied to clipboard (wl-copy)." >&2
+elif command -v xclip >/dev/null 2>&1; then
+  printf '%s' "$NRQL" | xclip -selection clipboard
+  echo >&2
+  echo "NRQL copied to clipboard (xclip)." >&2
+fi
 
-print(f"Data exploration URL: https://one.newrelic.com/data-exploration?account={account_id}", flush=True)
-print(flush=True)
-print(nrql, flush=True)
+cat >&2 <<'EOF'
 
-legacy_state = json.dumps({"initialActiveInterface": "nrqlEditor", "initialNrqlValue": nrql})
-legacy = (
-    "https://one.newrelic.com/data-exploration/query-builder?"
-    f"account={account_id}&state={urllib.parse.quote(legacy_state, safe='')}"
-)
-
-sys.stderr.write(
-    "\nOpen the first URL, expand the bottom \"Query your data\" drawer, choose NRQL, "
-    "paste the query above, then Run to see data.\n"
-    "To get a single shareable link that includes the query: run once, then click "
-    '"Copy query link" in the query console (team members need New Relic access).\n'
-    "Docs: https://docs.newrelic.com/docs/query-your-data/explore-query-data/dashboards/share-charts-dashboards-internally/#share-your-charts-internally\n"
-    f"\nLegacy ?state= link (often opens empty in newer UI):\n{legacy}\n\n"
-)
+Open the URL above, expand the bottom "Query your data" drawer, choose NRQL,
+paste the query, then Run. To share a single link that includes the query,
+run it once and click "Copy query link" in the console (this mints a
+server-backed onenr.io short link; teammates need New Relic access).
 EOF
