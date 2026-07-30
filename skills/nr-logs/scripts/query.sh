@@ -1,13 +1,21 @@
 #!/bin/bash
-# Query New Relic via NRQL using NerdGraph API.
+# Query New Relic logs via NRQL.
 # Usage: ./query.sh [--raw] NRQL [TIMEOUT_SECONDS]
 #
-#   --raw   Print full NerdGraph JSON (for jq pipelines / saving to file).
-#           Without --raw: prints Data exploration URL, copies NRQL to
-#           clipboard, and formats results (markdown table for FACET
-#           aggregates, indented JSON otherwise).
+#   --raw   Print the raw NRQL results array as JSON (for jq pipelines /
+#           saving to a file). Without --raw: prints Data exploration URL,
+#           copies NRQL to clipboard, and formats results (markdown table for
+#           FACET aggregates, indented JSON otherwise).
 #
-# Requires: NEW_RELIC_API_KEY, NEW_RELIC_ACCOUNT_ID; jq; curl; python3
+# Transport: uses the `newrelic` CLI (`newrelic nrql query`) when available,
+# otherwise falls back to the NerdGraph GraphQL API via curl+jq. Both paths
+# yield the same NRQL results array, so downstream output is identical.
+#
+# Requires: NEW_RELIC_API_KEY, NEW_RELIC_ACCOUNT_ID; python3; and either the
+# `newrelic` CLI (preferred) or curl+jq (fallback).
+#
+# Note: TIMEOUT_SECONDS sets the NRQL execution timeout and only applies to the
+# curl fallback; the `newrelic` CLI has no timeout flag and uses its default.
 #
 # Examples:
 #   ./query.sh "FROM Log SELECT count(*) WHERE level = 'ERROR' SINCE 1 hour ago FACET hostname"
@@ -28,7 +36,7 @@ TIMEOUT="${2:-30}"
 : "${NEW_RELIC_API_KEY:?NEW_RELIC_API_KEY environment variable is required}"
 : "${NEW_RELIC_ACCOUNT_ID:?NEW_RELIC_ACCOUNT_ID environment variable is required}"
 
-# --- clipboard (best-effort, stderr) ---
+# --- clipboard + UI URL (best-effort, only for human-facing output) ---
 if [[ "$RAW" == false ]]; then
   if command -v pbcopy >/dev/null 2>&1; then
     printf '%s' "$NRQL" | pbcopy
@@ -45,30 +53,48 @@ if [[ "$RAW" == false ]]; then
   echo
 fi
 
-# --- query ---
-PAYLOAD=$(jq -n \
-  --argjson accountId "$NEW_RELIC_ACCOUNT_ID" \
-  --arg nrql "$NRQL" \
-  --argjson timeout "$TIMEOUT" \
-  '{
-    query: "{ actor { account(id: \($accountId)) { nrql(query: \($nrql | tojson), timeout: \($timeout)) { results } } } }"
-  }')
+# --- fetch: prefer the newrelic CLI, fall back to NerdGraph via curl+jq ---
+# Both branches set RESULTS to the NRQL results array (JSON).
+if command -v newrelic >/dev/null 2>&1; then
+  # CLI reads NEW_RELIC_API_KEY from the environment; errors go to stderr and
+  # the command exits non-zero, so failures surface without extra handling.
+  if ! RESULTS=$(newrelic nrql query \
+      --accountId "$NEW_RELIC_ACCOUNT_ID" \
+      --format JSON \
+      --query "$NRQL"); then
+    echo "newrelic CLI query failed (see message above)." >&2
+    exit 1
+  fi
+else
+  command -v curl >/dev/null 2>&1 || { echo "Error: need the 'newrelic' CLI or curl." >&2; exit 1; }
+  command -v jq   >/dev/null 2>&1 || { echo "Error: curl fallback requires jq." >&2; exit 1; }
 
-RESPONSE=$(curl -sS -X POST https://api.newrelic.com/graphql \
-  -H "Content-Type: application/json" \
-  -H "API-Key: ${NEW_RELIC_API_KEY}" \
-  -d "$PAYLOAD")
+  PAYLOAD=$(jq -n \
+    --argjson accountId "$NEW_RELIC_ACCOUNT_ID" \
+    --arg nrql "$NRQL" \
+    --argjson timeout "$TIMEOUT" \
+    '{
+      query: "{ actor { account(id: \($accountId)) { nrql(query: \($nrql | tojson), timeout: \($timeout)) { results } } } }"
+    }')
 
-if echo "$RESPONSE" | jq -e '.errors != null and (.errors | length) > 0' >/dev/null 2>&1; then
-  echo "$RESPONSE" | jq . >&2
-  exit 1
+  RESPONSE=$(curl -sS -X POST https://api.newrelic.com/graphql \
+    -H "Content-Type: application/json" \
+    -H "API-Key: ${NEW_RELIC_API_KEY}" \
+    -d "$PAYLOAD")
+
+  if echo "$RESPONSE" | jq -e '.errors != null and (.errors | length) > 0' >/dev/null 2>&1; then
+    echo "$RESPONSE" | jq . >&2
+    exit 1
+  fi
+
+  RESULTS=$(echo "$RESPONSE" | jq -c '.data.actor.account.nrql.results')
 fi
 
 # --- output ---
 if [[ "$RAW" == true ]]; then
-  echo "$RESPONSE"
+  echo "$RESULTS"
 else
-  echo "$RESPONSE" | jq '.data.actor.account.nrql.results' | python3 -c '
+  echo "$RESULTS" | python3 -c '
 import json, sys
 
 def _facet_cells(facet):
